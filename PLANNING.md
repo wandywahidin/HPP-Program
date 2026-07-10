@@ -1,6 +1,6 @@
 # Planning: Sistem Perhitungan HPP (Harga Pokok Penjualan)
 
-> Status: **Draft untuk review** — silakan beri masukan sebelum implementasi dimulai.
+> Status: **Disetujui dengan revisi** — FIFO dari awal, biaya lain-lain masuk MVP, login Google.
 
 ## 1. Latar Belakang & Tujuan
 
@@ -8,108 +8,157 @@ Sistem untuk membantu pelaku usaha (UMKM/produksi) mengetahui **HPP yang ideal**
 
 1. Input **harga pembelian bahan baku** (kapan beli, berapa banyak, berapa harganya)
 2. Catat **penggunaan bahan baku** (bahan apa saja & berapa banyak yang dipakai untuk membuat suatu produk)
-3. Sistem **menghitung HPP** per produk secara otomatis
+3. Sistem **menghitung HPP** per produk secara otomatis dengan metode **FIFO**
+
+Setiap pengguna login dengan **akun Google**, dan satu akun bisa menyimpan **beberapa produk** dengan perhitungan HPP masing-masing.
 
 ## 2. Ruang Lingkup MVP
 
-### ✅ Masuk MVP
-
 | # | Fitur | Deskripsi |
 |---|-------|-----------|
-| 1 | Master Bahan Baku | CRUD bahan baku: nama, satuan (gram, ml, pcs, dll) |
-| 2 | Pembelian Bahan Baku | Input pembelian: bahan, tanggal, jumlah, harga total → sistem hitung harga per satuan |
-| 3 | Master Produk | CRUD produk yang dijual: nama, harga jual (opsional) |
-| 4 | Resep / Penggunaan Bahan | Definisikan komposisi produk: bahan apa & berapa banyak per 1 porsi/unit produk |
-| 5 | Perhitungan HPP | HPP per produk = Σ (jumlah bahan dipakai × harga rata-rata bahan) |
-| 6 | HPP Ideal & Margin | Tampilkan HPP, bandingkan dengan harga jual → margin (%), dan saran harga jual berdasarkan target margin |
+| 1 | Login Google | Autentikasi via Google OAuth; semua data terisolasi per akun |
+| 2 | Master Bahan Baku | CRUD bahan baku: nama, satuan (gram, ml, pcs, dll) |
+| 3 | Pembelian Bahan Baku | Input pembelian per **lot**: bahan, tanggal, jumlah, harga total → sistem hitung harga per satuan. Tiap lot menyimpan sisa kuantitas untuk FIFO |
+| 4 | Master Produk | CRUD produk: nama, harga jual (opsional) — multi-produk per akun |
+| 5 | Resep Produk | Komposisi bahan per 1 unit/porsi produk |
+| 6 | Biaya Lain-lain | Biaya non-bahan per produk: tenaga kerja, gas, kemasan, listrik, dll — basis per unit atau per batch produksi |
+| 7 | Penggunaan / Produksi | Catat produksi: produk apa, berapa unit → sistem konsumsi bahan dari lot **tertua dulu (FIFO)** dan catat biayanya |
+| 8 | Perhitungan HPP | HPP aktual per batch produksi (FIFO) + **HPP estimasi** dari resep memakai harga lot terdepan — untuk penentuan harga jual |
+| 9 | Margin & Harga Ideal | Margin % vs harga jual, dan saran harga jual berdasarkan target margin |
 
-### ❌ Di Luar MVP (fase berikutnya)
+### Di Luar MVP (fase berikutnya)
 
-- Manajemen stok / kartu stok (stok masuk-keluar real-time)
-- Metode FIFO/LIFO (MVP pakai **rata-rata tertimbang / moving average** karena paling sederhana dan umum untuk UMKM)
-- Biaya tenaga kerja & overhead (bisa ditambahkan sebagai komponen biaya di fase 2)
-- Multi-user, role & permission
-- Laporan laba rugi
+- Kartu stok lengkap / stock opname & penyesuaian stok
+- Laporan laba rugi & rekap penjualan
+- Multi-bisnis per akun, kolaborasi tim / role
+- Export PDF/Excel
 
-## 3. Metode Perhitungan HPP (MVP)
+## 3. Metode Perhitungan HPP: FIFO
 
-**Rata-rata tertimbang (weighted average):**
+Setiap pembelian bahan menjadi **lot** dengan harga satuannya sendiri. Saat produksi, bahan dikonsumsi dari lot yang **paling lama dibeli** terlebih dahulu.
+
+**Contoh FIFO — tepung tapioka (aci):**
+
+| Lot | Tanggal | Beli | Harga/kg | Sisa |
+|-----|---------|------|----------|------|
+| 1 | 2 Jul | 5 kg | Rp10.000 | 5 kg |
+| 2 | 8 Jul | 5 kg | Rp11.000 | 5 kg |
+
+- Produksi 60 pack Cirawang butuh 4,8 kg aci → semua diambil dari **Lot 1** @Rp10.000 → biaya aci = Rp48.000. Sisa Lot 1 = 0,2 kg.
+- Produksi berikutnya butuh 4,8 kg → 0,2 kg dari Lot 1 (Rp2.000) + 4,6 kg dari Lot 2 (Rp50.600) → biaya aci = Rp52.600.
 
 ```
-Harga rata-rata bahan = Total nilai pembelian bahan / Total kuantitas dibeli
-HPP produk            = Σ (qty bahan dalam resep × harga rata-rata bahan)
-Margin                = (Harga jual − HPP) / Harga jual × 100%
-Saran harga jual      = HPP / (1 − target margin%)
+HPP batch     = Σ biaya bahan terpakai (FIFO) + Σ biaya lain-lain batch
+HPP per unit  = HPP batch / jumlah unit diproduksi
+Margin        = (Harga jual − HPP) / Harga jual × 100%
+Saran harga   = HPP / (1 − target margin%)
 ```
 
-Contoh: beli tepung 2× → 1 kg @ Rp12.000 dan 1 kg @ Rp14.000 → harga rata-rata Rp13.000/kg = Rp13/gram. Resep roti pakai 200 gram tepung → kontribusi tepung ke HPP = Rp2.600.
+**HPP estimasi (untuk penentuan harga sebelum produksi):** dihitung dari resep × harga lot terdepan yang masih tersedia, plus biaya lain-lain per unit.
 
-## 4. Rancangan Data (ERD Sederhana)
+## 4. Contoh Perhitungan: Cirawang & Cirawit
+
+Harga bahan (contoh): tapioka Rp10.000/kg, bawang putih Rp40.000/kg, cabe rawit Rp60.000/kg, garam Rp10.000/kg, penyedap Rp40.000/kg, minyak goreng Rp18.000/liter.
+
+### Cirawang (aci tulang rangu bawang) — per 1 pack
+
+| Komponen | Qty | Harga satuan | Biaya |
+|----------|-----|--------------|-------|
+| Tepung tapioka | 80 g | Rp10/g | Rp800 |
+| Bawang putih | 5 g | Rp40/g | Rp200 |
+| Garam | 2 g | Rp10/g | Rp20 |
+| Penyedap | 1 g | Rp40/g | Rp40 |
+| Minyak goreng | 15 ml | Rp18/ml | Rp270 |
+| **Subtotal bahan** | | | **Rp1.330** |
+| Kemasan (pouch + label) | 1 pcs | | Rp500 |
+| Gas | | | Rp150 |
+| Tenaga kerja | | | Rp300 |
+| Listrik & lain-lain | | | Rp100 |
+| **Subtotal biaya lain** | | | **Rp1.050** |
+| **HPP per pack** | | | **Rp2.380** |
+
+Target margin 40% → saran harga jual = 2.380 / 0,6 = **Rp3.967 ≈ Rp4.000** (margin aktual 40,5%).
+
+### Cirawit (aci tulang rangu rawit) — per 1 pack
+
+| Komponen | Qty | Harga satuan | Biaya |
+|----------|-----|--------------|-------|
+| Tepung tapioka | 80 g | Rp10/g | Rp800 |
+| Cabe rawit | 8 g | Rp60/g | Rp480 |
+| Bawang putih | 3 g | Rp40/g | Rp120 |
+| Garam | 2 g | Rp10/g | Rp20 |
+| Penyedap | 1 g | Rp40/g | Rp40 |
+| Minyak goreng | 15 ml | Rp18/ml | Rp270 |
+| **Subtotal bahan** | | | **Rp1.730** |
+| **Subtotal biaya lain** (sama) | | | **Rp1.050** |
+| **HPP per pack** | | | **Rp2.780** |
+
+Target margin 40% → saran harga jual = 2.780 / 0,6 = **Rp4.633 ≈ Rp5.000** (margin aktual 44,4%).
+
+> Angka di atas hanya ilustrasi — di sistem, harga bahan mengikuti lot pembelian nyata (FIFO), jadi HPP otomatis naik/turun mengikuti harga beli terkini.
+
+## 5. Rancangan Data (ERD)
 
 ```
-ingredients (bahan baku)
-├── id, name, unit (gram/ml/pcs/...)
+users (dari Google OAuth)
+├── id, email, name, image
 
-purchases (pembelian)
-├── id, ingredient_id → ingredients
-├── purchase_date, quantity, total_price
-└── unit_price (dihitung: total_price / quantity)
+ingredients                      ← scoped per user_id
+├── id, user_id, name, unit
 
-products (produk)
-├── id, name, selling_price (nullable)
+purchase_lots                    ← tiap pembelian = 1 lot FIFO
+├── id, ingredient_id, purchase_date
+├── quantity, remaining_quantity
+└── total_price, unit_price
 
-recipe_items (resep / penggunaan bahan per produk)
-├── id, product_id → products
-├── ingredient_id → ingredients
-└── quantity (jumlah bahan per 1 unit produk)
+products                         ← scoped per user_id
+├── id, user_id, name, selling_price, target_margin
+
+recipe_items
+├── id, product_id, ingredient_id
+└── quantity (per 1 unit produk)
+
+other_costs                      ← biaya lain-lain per produk
+├── id, product_id, name, amount
+└── basis (PER_UNIT | PER_BATCH)
+
+productions                      ← catatan produksi / penggunaan
+├── id, product_id, production_date, quantity_produced
+└── total_cost, unit_cost (hasil FIFO, disimpan)
+
+production_consumptions          ← jejak alokasi FIFO
+├── id, production_id, ingredient_id, lot_id
+└── quantity, cost
 ```
 
-HPP dihitung on-the-fly dari data di atas (tidak disimpan), sehingga selalu update saat ada pembelian baru.
+Semua query difilter `user_id` (multi-tenant per akun Google).
 
-## 5. Halaman / UI (MVP)
+## 6. Halaman / UI
 
-1. **Dashboard** — ringkasan: jumlah bahan, produk, HPP tiap produk & margin
-2. **Bahan Baku** — daftar + form tambah/edit bahan
-3. **Pembelian** — daftar riwayat pembelian + form input pembelian
-4. **Produk & Resep** — daftar produk, form produk, dan editor resep (pilih bahan + qty)
-5. **Detail HPP Produk** — rincian: breakdown biaya per bahan, total HPP, margin, saran harga jual
+1. **Login** — tombol "Masuk dengan Google"
+2. **Dashboard** — HPP & margin tiap produk, peringatan stok lot menipis
+3. **Bahan Baku** — daftar bahan + sisa stok (dari lot)
+4. **Pembelian** — riwayat lot + form input pembelian
+5. **Produk** — daftar produk; per produk: resep, biaya lain-lain, HPP estimasi, saran harga
+6. **Produksi** — form catat produksi (auto-konsumsi FIFO dari resep, bisa disesuaikan) + riwayat dengan HPP aktual per batch
 
-## 6. Rekomendasi Tech Stack
-
-### ⭐ Opsi A — Next.js Full-Stack (REKOMENDASI)
+## 7. Tech Stack (disetujui — Opsi A)
 
 | Layer | Teknologi |
 |-------|-----------|
-| Framework | **Next.js 15 (App Router) + TypeScript** |
+| Framework | Next.js 15 (App Router) + TypeScript |
+| Auth | **Auth.js (NextAuth v5) + Google Provider** |
 | UI | Tailwind CSS + shadcn/ui |
-| Database | **SQLite** (dev) → PostgreSQL (produksi, mis. Neon/Supabase) |
+| Database | SQLite (dev) → PostgreSQL (produksi: Neon/Supabase) |
 | ORM | Prisma |
-| Deploy | Vercel (gratis untuk mulai) |
+| Deploy | Vercel |
 
-**Alasan:** satu bahasa (TypeScript) untuk frontend + backend, satu repo, cepat untuk MVP, mudah deploy gratis, ekosistem komponen UI lengkap. SQLite membuat development tanpa perlu setup database server.
+## 8. Tahapan Pengerjaan
 
-### Opsi B — Laravel + MySQL
-
-Laravel 11 + Blade/Livewire + MySQL. Cocok jika Anda lebih familiar dengan PHP; ekosistem & hosting murah banyak di Indonesia. Kekurangannya: dua konteks (PHP + JS) jika nanti butuh UI interaktif.
-
-### Opsi C — Super Ringan (Backend saja dulu)
-
-FastAPI/Express + SQLite tanpa frontend framework (HTML + HTMX). Paling cepat jalan, tapi kurang scalable untuk UI yang berkembang.
-
-## 7. Tahapan Pengerjaan (Milestone)
-
-| Fase | Isi | Estimasi |
-|------|-----|----------|
-| 1. Setup | Init project, database schema, layout dasar | ~1 sesi |
-| 2. Bahan & Pembelian | CRUD bahan baku + input pembelian + harga rata-rata | ~1–2 sesi |
-| 3. Produk & Resep | CRUD produk + editor resep | ~1–2 sesi |
-| 4. HPP & Margin | Halaman perhitungan HPP, margin, saran harga jual | ~1 sesi |
-| 5. Polish | Dashboard, validasi input, format Rupiah | ~1 sesi |
-
-## 8. Pertanyaan untuk Anda (mohon masukan)
-
-1. **Tech stack** — setuju dengan Opsi A (Next.js), atau lebih nyaman dengan opsi lain?
-2. **Metode HPP** — rata-rata tertimbang cukup untuk MVP, atau butuh FIFO dari awal?
-3. **Biaya lain** — apakah tenaga kerja/overhead perlu masuk MVP, atau cukup bahan baku dulu?
-4. **Pengguna** — dipakai sendiri (single user, tanpa login) atau perlu login dari awal?
-5. **Bahasa UI** — Bahasa Indonesia?
+| Fase | Isi |
+|------|-----|
+| 1. Setup + Auth | Init project, schema Prisma, login Google, layout dasar |
+| 2. Bahan & Pembelian | CRUD bahan + input lot pembelian + sisa stok |
+| 3. Produk, Resep & Biaya Lain | CRUD produk, editor resep, biaya lain-lain, HPP estimasi |
+| 4. Produksi & FIFO | Form produksi, engine alokasi FIFO, HPP aktual per batch |
+| 5. Polish | Dashboard, margin & saran harga, validasi, format Rupiah |

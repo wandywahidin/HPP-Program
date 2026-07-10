@@ -20,6 +20,34 @@ const links = [
   { href: "/produksi", label: "Produksi", icon: Factory },
 ];
 
+// Bar navigasi horizontal untuk layar kecil (sidebar disembunyikan).
+export function MobileNav() {
+  const pathname = usePathname();
+
+  return (
+    <nav className="flex items-center gap-1 overflow-x-auto px-2 py-2">
+      {links.map(({ href, label, icon: Icon }) => {
+        const active = href === "/" ? pathname === "/" : pathname.startsWith(href);
+        return (
+          <Link
+            key={href}
+            href={href}
+            className={cn(
+              "flex shrink-0 items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors",
+              active
+                ? "bg-neutral-900 text-white dark:bg-white dark:text-neutral-900"
+                : "text-neutral-600 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800",
+            )}
+          >
+            <Icon className="h-3.5 w-3.5" />
+            {label}
+          </Link>
+        );
+      })}
+    </nav>
+  );
+}
+
 export function AppNav() {
   const pathname = usePathname();
 

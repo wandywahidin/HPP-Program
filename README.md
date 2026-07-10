@@ -47,4 +47,4 @@ dan tambahkan redirect URI domain produksi di Google Console.
 - [x] Fase 2 — CRUD bahan baku + pembelian (lot FIFO) + sisa stok
 - [x] Fase 3 — Produk, resep, biaya lain-lain, HPP estimasi
 - [x] Fase 4 — Produksi + engine FIFO + HPP aktual per batch
-- [ ] Fase 5 — Dashboard lengkap, margin & saran harga, polish
+- [x] Fase 5 — Dashboard lengkap, margin - [ ] Fase 5 — Dashboard lengkap, margin & saran harga, polish saran harga, polish

@@ -107,6 +107,7 @@ model Product {
   name         String
   sellingPrice Float? // harga jual saat ini (opsional)
   targetMargin Float  @default(0.4) // target margin 0..1, untuk saran harga jual
+  defaultBatchSize Float @default(1) // perkiraan unit per 1 kali produksi, untuk alokasi biaya PER_BATCH
 
   user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   recipeItems RecipeItem[]

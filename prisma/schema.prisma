@@ -1,0 +1,181 @@
+// Schema HPP Program
+// SQLite untuk development; ganti provider ke "postgresql" saat produksi.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ===== Auth.js (NextAuth) =====
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+  accounts      Account[]
+  sessions      Session[]
+
+  ingredients Ingredient[]
+  products    Product[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ===== Domain HPP =====
+
+model Ingredient {
+  id     String @id @default(cuid())
+  userId String
+  name   String
+  unit   String // gram, ml, pcs, ...
+
+  user         User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lots         PurchaseLot[]
+  recipeItems  RecipeItem[]
+  consumptions ProductionConsumption[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, name])
+  @@index([userId])
+}
+
+// Satu pembelian = satu lot FIFO dengan harga satuannya sendiri.
+model PurchaseLot {
+  id                String   @id @default(cuid())
+  ingredientId      String
+  purchaseDate      DateTime
+  quantity          Float // jumlah dibeli, dalam satuan bahan
+  remainingQuantity Float // sisa yang belum terpakai (dikurangi saat produksi)
+  totalPrice        Float // Rupiah
+  unitPrice         Float // Rupiah per satuan = totalPrice / quantity
+
+  ingredient   Ingredient              @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
+  consumptions ProductionConsumption[]
+
+  createdAt DateTime @default(now())
+
+  @@index([ingredientId, purchaseDate])
+}
+
+model Product {
+  id           String @id @default(cuid())
+  userId       String
+  name         String
+  sellingPrice Float? // harga jual saat ini (opsional)
+  targetMargin Float  @default(0.4) // target margin 0..1, untuk saran harga jual
+
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  recipeItems RecipeItem[]
+  otherCosts  OtherCost[]
+  productions Production[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, name])
+  @@index([userId])
+}
+
+// Komposisi bahan per 1 unit produk.
+model RecipeItem {
+  id           String @id @default(cuid())
+  productId    String
+  ingredientId String
+  quantity     Float // jumlah bahan per 1 unit produk
+
+  product    Product    @relation(fields: [productId], references: [id], onDelete: Cascade)
+  ingredient Ingredient @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, ingredientId])
+}
+
+// Biaya non-bahan: tenaga kerja, gas, kemasan, listrik, dll.
+// basis: "PER_UNIT" (per 1 unit produk) atau "PER_BATCH" (per 1 kali produksi).
+model OtherCost {
+  id        String @id @default(cuid())
+  productId String
+  name      String
+  amount    Float // Rupiah
+  basis     String @default("PER_UNIT")
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+}
+
+// Catatan produksi: memicu konsumsi FIFO dan menyimpan HPP aktual batch.
+model Production {
+  id               String   @id @default(cuid())
+  productId        String
+  productionDate   DateTime
+  quantityProduced Float
+  materialCost     Float // total biaya bahan hasil alokasi FIFO
+  otherCost        Float // total biaya lain-lain batch ini
+  totalCost        Float // materialCost + otherCost
+  unitCost         Float // totalCost / quantityProduced = HPP per unit
+
+  product      Product                 @relation(fields: [productId], references: [id], onDelete: Cascade)
+  consumptions ProductionConsumption[]
+
+  createdAt DateTime @default(now())
+
+  @@index([productId, productionDate])
+}
+
+// Jejak alokasi FIFO: lot mana yang dipakai, berapa banyak, berapa biayanya.
+model ProductionConsumption {
+  id           String @id @default(cuid())
+  productionId String
+  ingredientId String
+  lotId        String
+  quantity     Float
+  cost         Float // quantity * lot.unitPrice
+
+  production Production  @relation(fields: [productionId], references: [id], onDelete: Cascade)
+  ingredient Ingredient  @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
+  lot        PurchaseLot @relation(fields: [lotId], references: [id], onDelete: Restrict)
+
+  @@index([productionId])
+}

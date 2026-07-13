@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { auth } from "@/auth";
 import { getProductsWithEstimates } from "@/lib/hpp";
-import { createProduct } from "@/lib/actions/products";
+import { createProduct, duplicateProduct } from "@/lib/actions/products";
 import { formatRupiah } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ErrorBanner } from "@/components/error-banner";
-import { Plus, TriangleAlert } from "lucide-react";
+import { Copy, Plus, TriangleAlert } from "lucide-react";
 
 export default async function ProdukPage({
   searchParams,
@@ -71,6 +71,7 @@ export default async function ProdukPage({
                   <TableHead className="text-right">Harga Jual</TableHead>
                   <TableHead className="text-right">Margin</TableHead>
                   <TableHead className="text-right">Saran Harga</TableHead>
+                  <TableHead className="w-14 text-right">Aksi</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -108,6 +109,18 @@ export default async function ProdukPage({
                       {product.recipeItems.length === 0 && product.otherCosts.length === 0
                         ? "—"
                         : formatRupiah(estimate.suggestedPrice)}
+                    </TableCell>
+                    <TableCell>
+                      <form action={duplicateProduct.bind(null, product.id)} className="flex justify-end">
+                        <button
+                          type="submit"
+                          title={`Duplikat ${product.name}`}
+                          className="inline-flex h-8 w-8 items-center justify-center rounded-md transition-colors hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                        >
+                          <Copy className="h-4 w-4" />
+                          <span className="sr-only">Duplikat</span>
+                        </button>
+                      </form>
                     </TableCell>
                   </TableRow>
                 ))}

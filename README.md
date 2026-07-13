@@ -50,3 +50,4 @@ dan tambahkan redirect URI domain produksi di Google Console.
 - [x] Fase 5 — Dashboard lengkap, margin & saran harga, polish
 - [x] Fitur lanjutan — Pencatatan penjualan + laba kotor
 - [x] Fitur lanjutan — Penyesuaian stok bahan + susut produksi
+- [x] Fitur lanjutan — Duplikasi produk

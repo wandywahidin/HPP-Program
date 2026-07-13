@@ -6,6 +6,7 @@ import { estimateProduct, productEstimateInclude } from "@/lib/hpp";
 import {
   updateProduct,
   deleteProduct,
+  duplicateProduct,
   upsertRecipeItem,
   deleteRecipeItem,
   createOtherCost,
@@ -20,7 +21,7 @@ import { Select } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ErrorBanner } from "@/components/error-banner";
 import { DeleteButton } from "@/components/delete-button";
-import { Plus, TriangleAlert } from "lucide-react";
+import { Copy, Plus, TriangleAlert } from "lucide-react";
 
 export default async function ProdukDetailPage({
   params,
@@ -53,10 +54,17 @@ export default async function ProdukDetailPage({
           <h1 className="text-2xl font-semibold">{product.name}</h1>
           <p className="text-sm text-neutral-500">Resep, biaya lain-lain, dan HPP estimasi</p>
         </div>
-        <DeleteButton
-          action={deleteProduct.bind(null, product.id)}
-          confirmMessage={`Hapus produk "${product.name}" beserta resep, biaya, dan riwayat produksinya?`}
-        />
+        <div className="flex items-center gap-2">
+          <form action={duplicateProduct.bind(null, product.id)}>
+            <Button type="submit" variant="outline" size="sm" title="Salin produk beserta resep & biaya">
+              <Copy className="h-4 w-4" /> Duplikat
+            </Button>
+          </form>
+          <DeleteButton
+            action={deleteProduct.bind(null, product.id)}
+            confirmMessage={`Hapus produk "${product.name}" beserta resep, biaya, dan riwayat produksinya?`}
+          />
+        </div>
       </div>
 
       <ErrorBanner message={error} />

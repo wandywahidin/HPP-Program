@@ -68,6 +68,53 @@ export async function updateProduct(id: string, formData: FormData) {
   redirect(path);
 }
 
+// Menyalin produk beserta resep dan biaya lain-lain (tanpa riwayat
+// produksi/penjualan). Nama salinan dibuat unik otomatis.
+export async function duplicateProduct(id: string) {
+  const userId = await requireUserId();
+
+  const source = await prisma.product.findFirst({
+    where: { id, userId },
+    include: { recipeItems: true, otherCosts: true },
+  });
+  if (!source) redirect("/produk");
+
+  const existing = await prisma.product.findMany({
+    where: { userId },
+    select: { name: true },
+  });
+  const names = new Set(existing.map((p) => p.name));
+  let name = `${source.name} (salinan)`;
+  for (let i = 2; names.has(name); i++) name = `${source.name} (salinan ${i})`;
+
+  const copy = await prisma.product.create({
+    data: {
+      userId,
+      name,
+      sellingPrice: source.sellingPrice,
+      targetMargin: source.targetMargin,
+      defaultBatchSize: source.defaultBatchSize,
+      recipeItems: {
+        create: source.recipeItems.map((item) => ({
+          ingredientId: item.ingredientId,
+          quantity: item.quantity,
+        })),
+      },
+      otherCosts: {
+        create: source.otherCosts.map((cost) => ({
+          name: cost.name,
+          amount: cost.amount,
+          basis: cost.basis,
+        })),
+      },
+    },
+    select: { id: true },
+  });
+
+  revalidatePath("/produk");
+  redirect(`/produk/${copy.id}`);
+}
+
 export async function deleteProduct(id: string) {
   const userId = await requireUserId();
   await prisma.product.deleteMany({ where: { id, userId } });

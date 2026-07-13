@@ -48,3 +48,4 @@ dan tambahkan redirect URI domain produksi di Google Console.
 - [x] Fase 3 — Produk, resep, biaya lain-lain, HPP estimasi
 - [x] Fase 4 — Produksi + engine FIFO + HPP aktual per batch
 - [x] Fase 5 — Dashboard lengkap, margin & saran harga, polish
+- [x] Fitur lanjutan — Pencatatan penjualan + laba kotor

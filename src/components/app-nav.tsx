@@ -10,6 +10,7 @@ import {
   ShoppingCart,
   Package,
   Factory,
+  Receipt,
 } from "lucide-react";
 
 const links = [
@@ -18,6 +19,7 @@ const links = [
   { href: "/pembelian", label: "Pembelian", icon: ShoppingCart },
   { href: "/produk", label: "Produk", icon: Package },
   { href: "/produksi", label: "Produksi", icon: Factory },
+  { href: "/penjualan", label: "Penjualan", icon: Receipt },
 ];
 
 // Bar navigasi horizontal untuk layar kecil (sidebar disembunyikan).

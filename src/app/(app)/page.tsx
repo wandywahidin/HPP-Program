@@ -5,13 +5,16 @@ import { getProductsWithEstimates } from "@/lib/hpp";
 import { formatNumber, formatRupiah } from "@/lib/utils";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Carrot, Package, ShoppingCart, Factory, TriangleAlert } from "lucide-react";
+import { Carrot, Package, ShoppingCart, Factory, Receipt, TriangleAlert } from "lucide-react";
 
 export default async function DashboardPage() {
   const session = await auth();
   const userId = session!.user.id;
 
-  const [ingredients, lotCount, productionCount, productRows, latestProductions] =
+  const now = new Date();
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+  const [ingredients, lotCount, productionCount, productRows, latestProductions, monthSales] =
     await Promise.all([
       prisma.ingredient.findMany({
         where: { userId },
@@ -25,7 +28,14 @@ export default async function DashboardPage() {
         where: { product: { userId } },
         orderBy: [{ productionDate: "desc" }, { createdAt: "desc" }],
       }),
+      prisma.sale.findMany({
+        where: { product: { userId }, saleDate: { gte: monthStart } },
+      }),
     ]);
+
+  const omzet = monthSales.reduce((sum, s) => sum + s.total, 0);
+  const labaKotor = monthSales.reduce((sum, s) => sum + (s.total - s.quantity * s.unitCost), 0);
+  const monthName = new Intl.DateTimeFormat("id-ID", { month: "long", year: "numeric" }).format(now);
 
   // HPP aktual terakhir per produk
   const lastActual = new Map<string, number>();
@@ -57,6 +67,37 @@ export default async function DashboardPage() {
           Selamat datang, {session!.user.name ?? session!.user.email}
         </p>
       </div>
+
+      {monthSales.length > 0 && (
+        <Link href="/penjualan">
+          <Card className="transition-shadow hover:shadow-md">
+            <CardHeader className="flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-neutral-500">
+                Penjualan {monthName}
+              </CardTitle>
+              <Receipt className="h-4 w-4 text-neutral-400" />
+            </CardHeader>
+            <CardContent className="flex flex-wrap gap-x-10 gap-y-2">
+              <div>
+                <p className="text-xs text-neutral-500">Omzet</p>
+                <p className="text-2xl font-semibold">{formatRupiah(omzet)}</p>
+              </div>
+              <div>
+                <p className="text-xs text-neutral-500">Laba kotor</p>
+                <p className={`text-2xl font-semibold ${labaKotor < 0 ? "text-red-600" : "text-emerald-600"}`}>
+                  {formatRupiah(labaKotor)}
+                </p>
+              </div>
+              {omzet > 0 && (
+                <div>
+                  <p className="text-xs text-neutral-500">Margin kotor</p>
+                  <p className="text-2xl font-semibold">{((labaKotor / omzet) * 100).toFixed(1)}%</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </Link>
+      )}
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         {stats.map(({ label, value, icon: Icon, href }) => (

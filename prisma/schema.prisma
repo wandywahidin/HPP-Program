@@ -113,6 +113,7 @@ model Product {
   recipeItems RecipeItem[]
   otherCosts  OtherCost[]
   productions Production[]
+  sales       Sale[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -163,6 +164,25 @@ model Production {
   createdAt DateTime @default(now())
 
   @@index([productId, productionDate])
+}
+
+// Penjualan produk. unitCost = HPP per unit yang DIBEKUKAN saat transaksi
+// dicatat (dari produksi terakhir, atau estimasi bila belum pernah produksi),
+// sehingga laba historis tidak berubah saat harga bahan berubah.
+model Sale {
+  id        String   @id @default(cuid())
+  productId String
+  saleDate  DateTime
+  quantity  Float
+  unitPrice Float // harga jual per unit saat transaksi
+  total     Float // quantity * unitPrice
+  unitCost  Float // HPP per unit (beku)
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([productId, saleDate])
 }
 
 // Jejak alokasi FIFO: lot mana yang dipakai, berapa banyak, berapa biayanya.

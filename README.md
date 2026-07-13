@@ -51,3 +51,4 @@ dan tambahkan redirect URI domain produksi di Google Console.
 - [x] Fitur lanjutan — Pencatatan penjualan + laba kotor
 - [x] Fitur lanjutan — Penyesuaian stok bahan + susut produksi
 - [x] Fitur lanjutan — Duplikasi produk
+- [x] Fitur lanjutan — PWA (install ke layar HP)

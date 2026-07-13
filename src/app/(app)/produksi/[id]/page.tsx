@@ -43,6 +43,13 @@ export default async function ProduksiDetailPage({
         </h1>
         <p className="text-sm text-neutral-500">
           Diproduksi {dateFmt.format(production.productionDate)}
+          {production.quantityDefect > 0 && (
+            <span className="text-amber-600">
+              {" "}
+              · gagal {formatNumber(production.quantityDefect)}, layak jual{" "}
+              {formatNumber(production.quantityProduced - production.quantityDefect)}
+            </span>
+          )}
         </p>
       </div>
 
@@ -65,7 +72,9 @@ export default async function ProduksiDetailPage({
               <p className="text-lg font-semibold">{formatRupiah(production.totalCost)}</p>
             </div>
             <div>
-              <p className="text-xs text-neutral-500">HPP per unit</p>
+              <p className="text-xs text-neutral-500">
+                HPP per unit{production.quantityDefect > 0 ? " (layak jual)" : ""}
+              </p>
               <p className="text-lg font-semibold">{formatRupiah(production.unitCost)}</p>
             </div>
           </div>

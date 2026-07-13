@@ -2,7 +2,10 @@ import Link from "next/link";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { createIngredient, deleteIngredient } from "@/lib/actions/ingredients";
+import { createAdjustment, deleteAdjustment } from "@/lib/actions/adjustments";
 import { formatNumber, formatRupiah } from "@/lib/utils";
+import { Select } from "@/components/ui/select";
+import { CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -21,11 +24,20 @@ export default async function BahanBakuPage({
   const session = await auth();
   const userId = session!.user.id;
 
-  const ingredients = await prisma.ingredient.findMany({
-    where: { userId },
-    include: { lots: { orderBy: { purchaseDate: "asc" } } },
-    orderBy: { name: "asc" },
-  });
+  const [ingredients, adjustments] = await Promise.all([
+    prisma.ingredient.findMany({
+      where: { userId },
+      include: { lots: { orderBy: { purchaseDate: "asc" } } },
+      orderBy: { name: "asc" },
+    }),
+    prisma.stockAdjustment.findMany({
+      where: { ingredient: { userId } },
+      include: { ingredient: true },
+      orderBy: [{ date: "desc" }, { createdAt: "desc" }],
+    }),
+  ]);
+
+  const today = new Date().toISOString().slice(0, 10);
 
   return (
     <div className="flex flex-col gap-6">
@@ -112,6 +124,104 @@ export default async function BahanBakuPage({
                     </TableRow>
                   );
                 })}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Penyesuaian Stok</CardTitle>
+          <CardDescription>
+            Koreksi stok karena bahan rusak/hilang atau hasil stock opname. Pengurangan diambil
+            FIFO dari lot tertua; penambahan masuk ke lot terbaru.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4">
+          {ingredients.length === 0 ? (
+            <p className="text-sm text-neutral-500">Belum ada bahan baku.</p>
+          ) : (
+            <form action={createAdjustment} className="flex flex-wrap items-end gap-3">
+              <div className="flex min-w-40 flex-1 flex-col gap-1.5">
+                <Label htmlFor="adjIngredientId">Bahan</Label>
+                <Select id="adjIngredientId" name="ingredientId" required defaultValue="">
+                  <option value="" disabled>
+                    Pilih bahan…
+                  </option>
+                  {ingredients.map((ing) => (
+                    <option key={ing.id} value={ing.id}>
+                      {ing.name} ({ing.unit})
+                    </option>
+                  ))}
+                </Select>
+              </div>
+              <div className="flex w-40 flex-col gap-1.5">
+                <Label htmlFor="adjDate">Tanggal</Label>
+                <Input id="adjDate" name="date" type="date" defaultValue={today} required />
+              </div>
+              <div className="flex w-36 flex-col gap-1.5">
+                <Label htmlFor="adjType">Jenis</Label>
+                <Select id="adjType" name="type" defaultValue="MINUS">
+                  <option value="MINUS">Pengurangan</option>
+                  <option value="PLUS">Penambahan</option>
+                </Select>
+              </div>
+              <div className="flex w-28 flex-col gap-1.5">
+                <Label htmlFor="adjQuantity">Jumlah</Label>
+                <Input id="adjQuantity" name="quantity" type="number" step="any" min="0.001" required />
+              </div>
+              <div className="flex min-w-40 flex-1 flex-col gap-1.5">
+                <Label htmlFor="adjNote">Catatan (ops.)</Label>
+                <Input id="adjNote" name="note" placeholder="cth: tumpah / opname" />
+              </div>
+              <Button type="submit" size="sm">
+                <Plus className="h-4 w-4" /> Catat
+              </Button>
+            </form>
+          )}
+
+          {adjustments.length > 0 && (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Tanggal</TableHead>
+                  <TableHead>Bahan</TableHead>
+                  <TableHead>Jenis</TableHead>
+                  <TableHead className="text-right">Jumlah</TableHead>
+                  <TableHead className="text-right">Nilai</TableHead>
+                  <TableHead>Catatan</TableHead>
+                  <TableHead className="w-14 text-right">Aksi</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {adjustments.map((adj) => (
+                  <TableRow key={adj.id}>
+                    <TableCell>
+                      {new Intl.DateTimeFormat("id-ID", { dateStyle: "medium" }).format(adj.date)}
+                    </TableCell>
+                    <TableCell className="font-medium">{adj.ingredient.name}</TableCell>
+                    <TableCell>
+                      <span className={adj.type === "MINUS" ? "text-red-600" : "text-emerald-600"}>
+                        {adj.type === "MINUS" ? "Pengurangan" : "Penambahan"}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {adj.type === "MINUS" ? "−" : "+"}
+                      {formatNumber(adj.quantity)} {adj.ingredient.unit}
+                    </TableCell>
+                    <TableCell className="text-right">{formatRupiah(adj.cost)}</TableCell>
+                    <TableCell className="text-neutral-500">{adj.note ?? "—"}</TableCell>
+                    <TableCell>
+                      <div className="flex justify-end">
+                        <DeleteButton
+                          action={deleteAdjustment.bind(null, adj.id)}
+                          confirmMessage={`Batalkan penyesuaian ${adj.ingredient.name} (${adj.type === "MINUS" ? "−" : "+"}${formatNumber(adj.quantity)} ${adj.ingredient.unit})? Stok akan dikembalikan.`}
+                        />
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
               </TableBody>
             </Table>
           )}

@@ -85,6 +85,17 @@ export default async function ProduksiPage({
                   required
                 />
               </div>
+              <div className="flex w-32 flex-col gap-1.5">
+                <Label htmlFor="quantityDefect">Unit gagal (ops.)</Label>
+                <Input
+                  id="quantityDefect"
+                  name="quantityDefect"
+                  type="number"
+                  step="any"
+                  min="0"
+                  placeholder="0"
+                />
+              </div>
               <Button type="submit">
                 <Plus className="h-4 w-4" /> Catat
               </Button>
@@ -92,7 +103,8 @@ export default async function ProduksiPage({
           )}
           <p className="mt-2 text-xs text-neutral-500">
             Kebutuhan bahan = resep × jumlah unit. Jika stok kurang, pencatatan dibatalkan dan
-            kekurangannya ditampilkan.
+            kekurangannya ditampilkan. Unit gagal ikut menanggung biaya: HPP = total biaya ÷ unit
+            layak jual.
           </p>
         </CardContent>
       </Card>
@@ -111,6 +123,7 @@ export default async function ProduksiPage({
                   <TableHead>Tanggal</TableHead>
                   <TableHead>Produk</TableHead>
                   <TableHead className="text-right">Unit</TableHead>
+                  <TableHead className="text-right">Gagal</TableHead>
                   <TableHead className="text-right">Biaya Bahan</TableHead>
                   <TableHead className="text-right">Biaya Lain</TableHead>
                   <TableHead className="text-right">Total</TableHead>
@@ -133,6 +146,9 @@ export default async function ProduksiPage({
                       </Link>
                     </TableCell>
                     <TableCell className="text-right">{formatNumber(prod.quantityProduced)}</TableCell>
+                    <TableCell className={`text-right ${prod.quantityDefect > 0 ? "text-amber-600" : ""}`}>
+                      {prod.quantityDefect > 0 ? formatNumber(prod.quantityDefect) : "—"}
+                    </TableCell>
                     <TableCell className="text-right">{formatRupiah(prod.materialCost)}</TableCell>
                     <TableCell className="text-right">{formatRupiah(prod.otherCost)}</TableCell>
                     <TableCell className="text-right">{formatRupiah(prod.totalCost)}</TableCell>

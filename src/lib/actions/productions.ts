@@ -14,10 +14,18 @@ export async function createProduction(formData: FormData) {
   const productId = String(formData.get("productId") ?? "");
   const productionDate = String(formData.get("productionDate") ?? "");
   const quantityProduced = Number(formData.get("quantityProduced"));
+  const defectRaw = String(formData.get("quantityDefect") ?? "").trim();
+  const quantityDefect = defectRaw === "" ? 0 : Number(defectRaw);
 
   if (!productId || !productionDate) redirectWithError("/produksi", "Produk dan tanggal wajib diisi");
   if (!Number.isFinite(quantityProduced) || quantityProduced <= 0) {
     redirectWithError("/produksi", "Jumlah produksi harus lebih dari 0");
+  }
+  if (!Number.isFinite(quantityDefect) || quantityDefect < 0) {
+    redirectWithError("/produksi", "Unit gagal tidak valid");
+  }
+  if (quantityDefect >= quantityProduced) {
+    redirectWithError("/produksi", "Unit gagal harus lebih kecil dari jumlah produksi");
   }
 
   const product = await prisma.product.findFirst({
@@ -85,16 +93,20 @@ export async function createProduction(formData: FormData) {
         0,
       );
       const totalCost = materialCost + otherCost;
+      // Biaya batch ditanggung unit layak jual saja — unit gagal ikut
+      // menaikkan HPP unit yang berhasil, sesuai kenyataan.
+      const sellable = quantityProduced - quantityDefect;
 
       const production = await tx.production.create({
         data: {
           productId: product.id,
           productionDate: new Date(productionDate),
           quantityProduced,
+          quantityDefect,
           materialCost,
           otherCost,
           totalCost,
-          unitCost: totalCost / quantityProduced,
+          unitCost: totalCost / sellable,
           consumptions: { create: consumptions },
         },
       });

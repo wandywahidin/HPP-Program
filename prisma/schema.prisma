@@ -75,6 +75,7 @@ model Ingredient {
   lots         PurchaseLot[]
   recipeItems  RecipeItem[]
   consumptions ProductionConsumption[]
+  adjustments  StockAdjustment[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -95,10 +96,42 @@ model PurchaseLot {
 
   ingredient   Ingredient              @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
   consumptions ProductionConsumption[]
+  adjustments  StockAdjustmentLot[]
 
   createdAt DateTime @default(now())
 
   @@index([ingredientId, purchaseDate])
+}
+
+// Penyesuaian stok bahan: MINUS (rusak/hilang/koreksi opname turun, diambil
+// FIFO dari lot tertua) atau PLUS (koreksi opname naik, ditambahkan ke lot
+// terbaru dengan harga lot itu). cost = nilai rupiah dampaknya.
+model StockAdjustment {
+  id           String   @id @default(cuid())
+  ingredientId String
+  date         DateTime
+  type         String // "MINUS" | "PLUS"
+  quantity     Float // selalu positif
+  cost         Float
+  note         String?
+
+  ingredient  Ingredient           @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
+  allocations StockAdjustmentLot[]
+
+  createdAt DateTime @default(now())
+
+  @@index([ingredientId, date])
+}
+
+model StockAdjustmentLot {
+  id           String @id @default(cuid())
+  adjustmentId String
+  lotId        String
+  quantity     Float
+  cost         Float
+
+  adjustment StockAdjustment @relation(fields: [adjustmentId], references: [id], onDelete: Cascade)
+  lot        PurchaseLot     @relation(fields: [lotId], references: [id], onDelete: Restrict)
 }
 
 model Product {
@@ -152,11 +185,13 @@ model Production {
   id               String   @id @default(cuid())
   productId        String
   productionDate   DateTime
-  quantityProduced Float
+  quantityProduced Float // total unit dibuat (termasuk yang gagal)
+  quantityDefect   Float    @default(0) // unit gagal/rusak (susut produksi)
   materialCost     Float // total biaya bahan hasil alokasi FIFO
   otherCost        Float // total biaya lain-lain batch ini
   totalCost        Float // materialCost + otherCost
-  unitCost         Float // totalCost / quantityProduced = HPP per unit
+  unitCost         Float // totalCost / (quantityProduced - quantityDefect):
+  // biaya batch ditanggung unit yang layak jual saja
 
   product      Product                 @relation(fields: [productId], references: [id], onDelete: Cascade)
   consumptions ProductionConsumption[]

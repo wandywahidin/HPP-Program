@@ -35,7 +35,7 @@ export default async function PenjualanPage({
     prisma.production.groupBy({
       by: ["productId"],
       where: { product: { userId } },
-      _sum: { quantityProduced: true },
+      _sum: { quantityProduced: true, quantityDefect: true },
     }),
     prisma.sale.groupBy({
       by: ["productId"],
@@ -50,8 +50,13 @@ export default async function PenjualanPage({
   const hppTerjual = monthSales.reduce((sum, s) => sum + s.quantity * s.unitCost, 0);
   const labaKotor = omzet - hppTerjual;
 
-  // Stok produk jadi = diproduksi − terjual
-  const producedMap = new Map(productionAgg.map((p) => [p.productId, p._sum.quantityProduced ?? 0]));
+  // Stok produk jadi = diproduksi (layak jual) − terjual
+  const producedMap = new Map(
+    productionAgg.map((p) => [
+      p.productId,
+      (p._sum.quantityProduced ?? 0) - (p._sum.quantityDefect ?? 0),
+    ]),
+  );
   const soldMap = new Map(salesAgg.map((s) => [s.productId, s._sum.quantity ?? 0]));
   const finishedStock = products
     .map((p) => ({
@@ -163,14 +168,17 @@ export default async function PenjualanPage({
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Stok Produk Jadi</CardTitle>
-            <CardDescription>Diproduksi dikurangi terjual — minus berarti ada penjualan yang belum tercatat produksinya.</CardDescription>
+            <CardDescription>
+              Layak jual (produksi dikurangi unit gagal) dikurangi terjual — minus berarti ada
+              penjualan yang belum tercatat produksinya.
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>Produk</TableHead>
-                  <TableHead className="text-right">Diproduksi</TableHead>
+                  <TableHead className="text-right">Layak Jual</TableHead>
                   <TableHead className="text-right">Terjual</TableHead>
                   <TableHead className="text-right">Sisa</TableHead>
                 </TableRow>
